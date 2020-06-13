@@ -36,13 +36,13 @@ def download_show(url):
         download_location = DOWNLOAD_ROOT + show_name + '/Season ' + str(season) + '/'
         print("Creating %s if not exist" % download_location)
         Path(download_location).mkdir(parents=True, exist_ok=True)
-
+        print("Created %s" % download_location)
         links = content.findAll('a', href=True)
         num_eps = len(links)
 
-        print("Creating futures for season %s" % str(seasons))
+        print("Creating futures for season %s" % str(season))
         futures = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
             for j in range(0, num_eps):
                 link = links[j]
                 ep = num_eps - j
@@ -61,6 +61,7 @@ def download_show(url):
             download_link = future.result()
             download_list.append((name, download_link))
 
+        print(download_list)
         print("Downloading files")
         deleted_files = False
         # download mp4 from google
@@ -90,17 +91,22 @@ def scrape_download_link(url):
     elif 'watchtvseries' in url:
         download_link = process_watchtvseries(url)
     else:
+        print("%s is neither gounlimited nor watchtvseries" % url)
         download_link = None
     return download_link
 
 
 def process_gounlimited(url):
     req = requests.get(url, headers)
+
     js_soup = BeautifulSoup(req.text, 'html.parser')
     script_tag = js_soup.findAll("script")
+    print(len(script_tag))
     for script in script_tag:
+        print(script.text)
         text = script.text
         if "function(p,a,c,k,e,d)" in text:
+            print("Found function(p,a,c,k,e,d)")
             text = text.strip()
             unpacked = eval('utility.unpack' + text[text.find('}(') + 1:-1])
             return re.findall(r'src:"(.+?)"', unpacked)[0]
@@ -152,6 +158,7 @@ if __name__ == '__main__':
         for line in f:
             try:
                 download_show(line)
-            except:
+            except Exception as e:
+                print(e)
                 exceptions += 1
                 print("Failed to download show: %s" % line)
