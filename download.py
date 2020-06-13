@@ -24,7 +24,6 @@ WATCHTVSERIES_ADMIN = "https://watchtvseries.one/wp-admin/admin-ajax.php"
 def download_show(url):
     print("Getting %s" % url)
     req = requests.get(url, headers)
-    print("Parse %s" % url)
     show_page_soup = BeautifulSoup(req.content, 'html.parser')
     show_name = get_show_name(show_page_soup)
 
@@ -34,35 +33,28 @@ def download_show(url):
         content = tab_contents[i]
         season = num_seasons - i
         download_location = DOWNLOAD_ROOT + show_name + '/Season ' + str(season) + '/'
-        print("Creating %s if not exist" % download_location)
         Path(download_location).mkdir(parents=True, exist_ok=True)
-        print("Created %s" % download_location)
         links = content.findAll('a', href=True)
         num_eps = len(links)
 
-        print("Creating futures for season %s" % str(season))
         futures = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
             for j in range(0, num_eps):
                 link = links[j]
                 ep = num_eps - j
                 name = show_name + '_S' + str(season) + '_E' + str(ep) + '.mp4'
-                print("File name: %s" % name)
                 if ospath.exists(download_location + name):
                     print("Skipping %s because file already exists" % name)
                 url = link['href']
                 future = executor.submit(scrape_download_link, url)
                 futures.append((name, future))
 
-        print("Creating download_list")
         # get results
         download_list = []
         for name, future in futures:
             download_link = future.result()
             download_list.append((name, download_link))
 
-        print(download_list)
-        print("Downloading files")
         deleted_files = False
         # download mp4 from google
         for name, download_link in download_list:
@@ -101,12 +93,11 @@ def process_gounlimited(url):
 
     js_soup = BeautifulSoup(req.text, 'html.parser')
     script_tag = js_soup.findAll("script")
-    print(len(script_tag))
     for script in script_tag:
-        print(script.text)
-        text = script.text
+        if len(script.contents) == 0:
+            continue
+        text = script.contents[0]
         if "function(p,a,c,k,e,d)" in text:
-            print("Found function(p,a,c,k,e,d)")
             text = text.strip()
             unpacked = eval('utility.unpack' + text[text.find('}(') + 1:-1])
             return re.findall(r'src:"(.+?)"', unpacked)[0]
