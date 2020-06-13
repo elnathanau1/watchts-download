@@ -22,7 +22,9 @@ WATCHTVSERIES_ADMIN = "https://watchtvseries.one/wp-admin/admin-ajax.php"
 
 
 def download_show(url):
+    print("Getting %s" % url)
     req = requests.get(url, headers)
+    print("Parse %s" % url)
     show_page_soup = BeautifulSoup(req.content, 'html.parser')
     show_name = get_show_name(show_page_soup)
 
@@ -38,24 +40,28 @@ def download_show(url):
         links = content.findAll('a', href=True)
         num_eps = len(links)
 
+        print("Creating futures for season %s" % str(seasons))
         futures = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             for j in range(0, num_eps):
                 link = links[j]
                 ep = num_eps - j
                 name = show_name + '_S' + str(season) + '_E' + str(ep) + '.mp4'
+                print("File name: %s" % name)
                 if ospath.exists(download_location + name):
                     print("Skipping %s because file already exists" % name)
                 url = link['href']
                 future = executor.submit(scrape_download_link, url)
                 futures.append((name, future))
 
+        print("Creating download_list")
         # get results
         download_list = []
         for name, future in futures:
             download_link = future.result()
             download_list.append((name, download_link))
 
+        print("Downloading files")
         deleted_files = False
         # download mp4 from google
         for name, download_link in download_list:
