@@ -73,5 +73,5 @@ update-checker==0.16
 urllib3==1.22
 vboxapi==1.0
 webencodings==0.5.1
-Werkzeug==0.12.2
+Werkzeug==0.15.3
 xattr==0.6.4
