@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 from clint.textui import progress
 from resources import utility
+from resources.stopwatch import Timer
 
 headers = {
     'Access-Control-Allow-Origin': '*',
@@ -73,6 +74,8 @@ def download_show(url):
 
 
 def download_file(name, download_link, download_location):
+    timer = Timer()
+    timer.start()
     print("Downloading: %s" % name)
     r = requests.get(download_link, stream=True)
     path = download_location + name
@@ -82,6 +85,8 @@ def download_file(name, download_link, download_location):
             if chunk:
                 output_file.write(chunk)
                 output_file.flush()
+        output_file.close()
+    print(timer.stop("Finished downloading " + name + " in: "))
 
     # if file too small (under 2k), delete it
     if ospath.getsize(path) < 2 * 1024:
