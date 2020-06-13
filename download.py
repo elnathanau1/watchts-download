@@ -44,6 +44,8 @@ def download_show(url):
                 link = links[j]
                 ep = num_eps - j
                 name = show_name + '_S' + str(season) + '_E' + str(ep) + '.mp4'
+                if ospath.exists(download_location + name):
+                    print("Skipping %s because file already exists" % name)
                 url = link['href']
                 future = executor.submit(scrape_download_link, url)
                 futures.append((name, future))
@@ -54,27 +56,26 @@ def download_show(url):
             download_link = future.result()
             download_list.append((name, download_link))
 
-        for download in download_list:
-            deleted_files = False
-            # download mp4 from google
-            for name, download_link in download_list:
-                print("Downloading: %s" % name)
-                r = requests.get(download_link, stream=True)
-                path = download_location + name
-                with open(path, 'wb') as f:
-                    total_length = int(r.headers.get('content-length'))
-                    for chunk in progress.bar(r.iter_content(chunk_size=1024), expected_size=(total_length / 1024) + 1):
-                        if chunk:
-                            f.write(chunk)
-                            f.flush()
+        deleted_files = False
+        # download mp4 from google
+        for name, download_link in download_list:
+            print("Downloading: %s" % name)
+            r = requests.get(download_link, stream=True)
+            path = download_location + name
+            with open(path, 'wb') as f:
+                total_length = int(r.headers.get('content-length'))
+                for chunk in progress.bar(r.iter_content(chunk_size=1024), expected_size=(total_length / 1024) + 1):
+                    if chunk:
+                        f.write(chunk)
+                        f.flush()
 
-                # if file too small (under 2k), delete it
-                if ospath.getsize(path) < 2 * 1024:
-                    os.remove(path)
-                    deleted_files = True
+            # if file too small (under 2k), delete it
+            if ospath.getsize(path) < 2 * 1024:
+                os.remove(path)
+                deleted_files = True
 
-            if deleted_files:
-                raise Exception("Downloaded files that were empty")
+        if deleted_files:
+            raise Exception("Downloaded files that were empty")
 
 
 def scrape_download_link(url):
@@ -147,4 +148,4 @@ if __name__ == '__main__':
                 download_show(line)
             except:
                 exceptions += 1
-                print("Failed to download show: %s" % row['show_name'])
+                print("Failed to download show: %s" % line)
