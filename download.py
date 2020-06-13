@@ -30,36 +30,37 @@ def download_show(url):
     show_name = get_show_name(show_page_soup)
 
     tab_contents = show_page_soup.findAll('div', {'class': 'tabcontent'})
-    num_seasons = len(tab_contents)
-    for i in range(0, num_seasons):
-        content = tab_contents[i]
-        season = num_seasons - i
-        download_location = DOWNLOAD_ROOT + show_name + '/Season ' + str(season) + '/'
-        Path(download_location).mkdir(parents=True, exist_ok=True)
-        links = content.findAll('a', href=True)
-        num_eps = len(links)
 
-        futures = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            for j in range(0, num_eps):
-                link = links[j]
-                ep = num_eps - j
-                name = show_name + '_S' + str(season) + '_E' + str(ep) + '.mp4'
-                if ospath.exists(download_location + name):
-                    print("Skipping %s because file already exists" % name)
-                url = link['href']
-                future = executor.submit(scrape_download_link, url)
-                futures.append((name, future))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        num_seasons = len(tab_contents)
+        for i in range(0, num_seasons):
+            content = tab_contents[i]
+            season = num_seasons - i
+            download_location = DOWNLOAD_ROOT + show_name + '/Season ' + str(season) + '/'
+            Path(download_location).mkdir(parents=True, exist_ok=True)
+            links = content.findAll('a', href=True)
+            num_eps = len(links)
 
-        # get results
-        download_list = []
-        for name, future in futures:
-            download_link = future.result()
-            download_list.append((name, download_link))
+            futures = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                for j in range(0, num_eps):
+                    link = links[j]
+                    ep = num_eps - j
+                    name = show_name + '_S' + str(season) + '_E' + str(ep) + '.mp4'
+                    if ospath.exists(download_location + name):
+                        print("Skipping %s because file already exists" % name)
+                    url = link['href']
+                    future = executor.submit(scrape_download_link, url)
+                    futures.append((name, future))
 
-        # download mp4 from google
-        download_futures = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            # get results
+            download_list = []
+            for name, future in futures:
+                download_link = future.result()
+                download_list.append((name, download_link))
+
+            # download mp4 from google
+            download_futures = []
             for name, download_link in download_list:
                 future = executor.submit(download_file, name, download_link, download_location)
                 download_futures.append(future)
@@ -90,6 +91,7 @@ def download_file(name, download_link, download_location):
 
     # if file too small (under 2k), delete it
     if ospath.getsize(path) < 2 * 1024:
+        print("Deleting file because too small: " + name)
         os.remove(path)
         return False
     else:
