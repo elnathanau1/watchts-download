@@ -19,6 +19,7 @@ headers = {
 }
 
 WATCHTVSERIES_ADMIN = "https://watchtvseries.one/wp-admin/admin-ajax.php"
+MAX_WORKERS = 10
 
 
 def download_show(url):
@@ -38,7 +39,7 @@ def download_show(url):
         num_eps = len(links)
 
         futures = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             for j in range(0, num_eps):
                 link = links[j]
                 ep = num_eps - j
@@ -55,26 +56,39 @@ def download_show(url):
             download_link = future.result()
             download_list.append((name, download_link))
 
-        deleted_files = False
         # download mp4 from google
-        for name, download_link in download_list:
-            print("Downloading: %s" % name)
-            r = requests.get(download_link, stream=True)
-            path = download_location + name
-            with open(path, 'wb') as f:
-                total_length = int(r.headers.get('content-length'))
-                for chunk in progress.bar(r.iter_content(chunk_size=1024), expected_size=(total_length / 1024) + 1):
-                    if chunk:
-                        f.write(chunk)
-                        f.flush()
+        download_futures = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            for name, download_link in download_list:
+                future = executor.submit(download_file, name, download_link, download_location)
+                download_futures.append(future)
 
-            # if file too small (under 2k), delete it
-            if ospath.getsize(path) < 2 * 1024:
-                os.remove(path)
-                deleted_files = True
+        deleted_files = False
+        for future in download_futures:
+            result = future.result()
+            deleted_files = deleted_files or result
 
         if deleted_files:
             raise Exception("Downloaded files that were empty")
+
+
+def download_file(name, download_link, download_location):
+    print("Downloading: %s" % name)
+    r = requests.get(download_link, stream=True)
+    path = download_location + name
+    with open(path, 'wb') as output_file:
+        total_length = int(r.headers.get('content-length'))
+        for chunk in progress.bar(r.iter_content(chunk_size=1024), expected_size=(total_length / 1024) + 1):
+            if chunk:
+                output_file.write(chunk)
+                output_file.flush()
+
+    # if file too small (under 2k), delete it
+    if ospath.getsize(path) < 2 * 1024:
+        os.remove(path)
+        return False
+    else:
+        return True
 
 
 def scrape_download_link(url):
