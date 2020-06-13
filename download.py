@@ -31,7 +31,7 @@ def download_show(url):
 
     tab_contents = show_page_soup.findAll('div', {'class': 'tabcontent'})
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as download_executor:
         num_seasons = len(tab_contents)
         for i in range(0, num_seasons):
             content = tab_contents[i]
@@ -62,7 +62,7 @@ def download_show(url):
             # download mp4 from google
             download_futures = []
             for name, download_link in download_list:
-                future = executor.submit(download_file, name, download_link, download_location)
+                future = download_executor.submit(download_file, name, download_link, download_location)
                 download_futures.append(future)
 
         deleted_files = False
