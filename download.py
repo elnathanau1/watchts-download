@@ -20,17 +20,19 @@ headers = {
 }
 
 WATCHTVSERIES_ADMIN = "https://watchtvseries.one/wp-admin/admin-ajax.php"
-MAX_WORKERS = 12
+MAX_WORKERS = 20
+MAX_RETRIES = 5
 
 
-def download_show(url):
-    print("Getting %s" % url)
+def download_show(url, retry_num):
+    print("Download retry " + str(retry_num + ": %s" % url))
     req = requests.get(url, headers)
     show_page_soup = BeautifulSoup(req.content, 'html.parser')
     show_name = get_show_name(show_page_soup)
 
     tab_contents = show_page_soup.findAll('div', {'class': 'tabcontent'})
 
+    deleted_files = False
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as download_executor:
         num_seasons = len(tab_contents)
         for i in range(0, num_seasons):
@@ -48,7 +50,7 @@ def download_show(url):
                     ep = num_eps - j
                     name = show_name + '_S' + str(season) + '_E' + str(ep) + '.mp4'
                     if ospath.exists(download_location + name):
-                        print("Skipping %s because file already exists" % name)
+                        continue
                     url = link['href']
                     future = executor.submit(scrape_download_link, url)
                     futures.append((name, future))
@@ -65,19 +67,20 @@ def download_show(url):
                 future = download_executor.submit(download_file, name, download_link, download_location)
                 download_futures.append(future)
 
-        deleted_files = False
+        print("Ready to download files")
         for future in download_futures:
             result = future.result()
             deleted_files = deleted_files or result
-
-        if deleted_files:
-            raise Exception("Downloaded files that were empty")
+    if deleted_files:
+        if retry_num < MAX_RETRIES:
+            download_show(url, retry_num + 1)
+        else:
+            print("Out of retries. Moving onto next show.")
 
 
 def download_file(name, download_link, download_location):
     timer = Timer()
     timer.start()
-    print("Downloading: %s" % name)
     r = requests.get(download_link, stream=True)
     path = download_location + name
     with open(path, 'wb') as output_file:
@@ -87,7 +90,6 @@ def download_file(name, download_link, download_location):
                 output_file.write(chunk)
                 output_file.flush()
         output_file.close()
-    print(timer.stop("Finished downloading " + name + " in: "))
 
     # if file too small (under 2k), delete it
     if ospath.getsize(path) < 2 * 1024:
@@ -95,6 +97,7 @@ def download_file(name, download_link, download_location):
         os.remove(path)
         return False
     else:
+        print(timer.stop("Finished downloading " + name + " in: "))
         return True
 
 
@@ -160,17 +163,6 @@ if __name__ == '__main__':
         exit(0)
 
     DOWNLOAD_ROOT = sys.argv[2]
-    f = open(DOWNLOAD_FILE, "r")
-    exceptions = 1
-    retries = 0
-    MAX_RETRIES = 5
-    while exceptions > 0 | retries < MAX_RETRIES:
-        retries += 1
-        exceptions = 0
+    with open(DOWNLOAD_FILE, "r") as f:
         for line in f:
-            try:
-                download_show(line)
-            except Exception as e:
-                print(e)
-                exceptions += 1
-                print("Failed to download show: %s" % line)
+            download_show(line, 0)
