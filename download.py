@@ -20,7 +20,7 @@ headers = {
 }
 
 WATCHTVSERIES_ADMIN = "https://watchtvseries.one/wp-admin/admin-ajax.php"
-MAX_WORKERS = 10
+MAX_WORKERS = 12
 
 
 def download_show(url):
