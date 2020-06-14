@@ -25,7 +25,7 @@ MAX_RETRIES = 5
 
 
 def download_show(url, retry_num):
-    print("Download retry " + str(retry_num + ": %s" % url))
+    print("Download retry " + str(retry_num) + ": %s" % url)
     req = requests.get(url, headers)
     show_page_soup = BeautifulSoup(req.content, 'html.parser')
     show_name = get_show_name(show_page_soup)
@@ -70,7 +70,7 @@ def download_show(url, retry_num):
         print("Ready to download files")
         for future in download_futures:
             result = future.result()
-            deleted_files = deleted_files or result
+            deleted_files = deleted_files or not result
     if deleted_files:
         if retry_num < MAX_RETRIES:
             download_show(url, retry_num + 1)
