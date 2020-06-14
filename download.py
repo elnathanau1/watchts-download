@@ -35,6 +35,7 @@ def download_show(url, retry_num):
     deleted_files = False
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as download_executor:
         num_seasons = len(tab_contents)
+        download_futures = []
         for i in range(0, num_seasons):
             content = tab_contents[i]
             season = num_seasons - i
@@ -62,7 +63,6 @@ def download_show(url, retry_num):
                 download_list.append((name, download_link))
 
             # download mp4 from google
-            download_futures = []
             for name, download_link in download_list:
                 future = download_executor.submit(download_file, name, download_link, download_location)
                 download_futures.append(future)
