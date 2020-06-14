@@ -70,7 +70,8 @@ def download_show(url, retry_num):
         print("Ready to download files")
         for future in download_futures:
             result = future.result()
-            deleted_files = deleted_files or not result
+            if result:
+                deleted_files = True
     if deleted_files:
         if retry_num < MAX_RETRIES:
             download_show(url, retry_num + 1)
